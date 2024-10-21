@@ -1,16 +1,16 @@
 {
   "files": {
     "main.css": "/Ultron/static/css/main.f855e6bc.css",
-    "main.js": "/Ultron/static/js/main.c2abf1e0.js",
+    "main.js": "/Ultron/static/js/main.ae2c119b.js",
     "static/js/453.8d4b77ef.chunk.js": "/Ultron/static/js/453.8d4b77ef.chunk.js",
     "static/media/logo.svg": "/Ultron/static/media/logo.6ce24c58023cc2f8fd88fe9d219db6c6.svg",
     "index.html": "/Ultron/index.html",
     "main.f855e6bc.css.map": "/Ultron/static/css/main.f855e6bc.css.map",
-    "main.c2abf1e0.js.map": "/Ultron/static/js/main.c2abf1e0.js.map",
+    "main.ae2c119b.js.map": "/Ultron/static/js/main.ae2c119b.js.map",
     "453.8d4b77ef.chunk.js.map": "/Ultron/static/js/453.8d4b77ef.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.f855e6bc.css",
-    "static/js/main.c2abf1e0.js"
+    "static/js/main.ae2c119b.js"
   ]
 }
