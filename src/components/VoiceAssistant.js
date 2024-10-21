@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useSpeechRecognition, useSpeechSynthesis } from 'react-speech-kit';
+import { useSpeechRecognition } from 'react-speech-kit';
 import axios from 'axios';
 import WaveAnimation from './WaveAnimation';
 import styled from 'styled-components';
-
+import { GoogleGenerativeAI } from '@google/generative-ai';
 const AssistantContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -17,51 +17,54 @@ const VoiceAssistant = () => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [responseText, setResponseText] = useState('');
-  const [isActivated, setIsActivated] = useState(false); // New state to track activation
+  const [inputText, setInputText] = useState('');
 
   const { listen, stop, supported } = useSpeechRecognition({
-    onResult: (result) => handleVoiceCommand(result),
+    onResult: (result) => handleVoiceCommand(result.toLowerCase()),
     continuous: true,
     interimResults: false,
   });
 
-  const { speak } = useSpeechSynthesis();
+  const speak = (text) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.onend = () => {
+      setIsSpeaking(false);
+    };
+    utterance.onerror = (error) => {
+      console.error("Speech synthesis error:", error);
+      setIsSpeaking(false);
+    };
+    window.speechSynthesis.speak(utterance);
+  };
 
-  const handleVoiceCommand = async (result) => {
-    const command = result.toLowerCase();
-    console.log(`Recognized command: ${command}`);
+  const handleVoiceCommand = async (command) => {
+    if (!command) return;
 
-    // Activate on "Ultron"
-    if (command.includes("ultron") && !isActivated) {
-      setIsListening(true);
-      setIsActivated(true); // Mark as activated to prevent multiple triggers
-      speak({ text: "How can I assist you?" });
-      console.log("Ultron activated.");
-      return;
+    console.log("Command received:", command);
+
+    if (command.includes("ultron")) {
+      if (!isSpeaking) {
+        setIsListening(true);
+        setIsSpeaking(true);
+        speak("How can I assist you?");
+        return;
+      }
     }
 
-    // Listen to further commands
-    if (isListening) {
-      console.log("Listening for further commands...");
+    if (isListening || inputText) {
       setIsSpeaking(true);
-
-      // Check for specific commands
+      console.log("Processing command...");
       const actionResponse = handleSpecificCommands(command);
       if (actionResponse) {
         setResponseText(actionResponse);
-        console.log(`Action taken: ${actionResponse}`);
-        speak({ text: actionResponse });
+        speak(actionResponse);
       } else {
-        // Use Gemini for other queries
         const geminiResponse = await fetchGeminiResponse(command);
         setResponseText(geminiResponse);
-        console.log(`Gemini response: ${geminiResponse}`);
-        speak({ text: geminiResponse });
+        speak(geminiResponse);
       }
-
       setIsSpeaking(false);
-      setIsListening(false);
-      setIsActivated(false); // Reset activation after processing command
+      setIsListening(false); // Stop listening after processing
     }
   };
 
@@ -70,65 +73,63 @@ const VoiceAssistant = () => {
       window.open("https://www.youtube.com", "_blank");
       return "Opening YouTube.";
     } else if (command.includes("open vscode")) {
-      window.open("vscode://", "_blank");
-      return "Opening Visual Studio Code.";
+      return "Visual Studio Code cannot be opened directly from the browser.";
     } else if (command.includes("open calculator")) {
-      window.open("calculator://", "_blank");
-      return "Opening Calculator.";
+      return "Opening Calculator on your system.";
     } else if (command.includes("play chamka chalo")) {
       window.open("https://www.youtube.com/results?search_query=chamka+chalo", "_blank");
       return "Playing 'Chamka Chalo' on YouTube.";
     }
-    // Add more commands as needed...
-
     return null;
   };
 
   const fetchGeminiResponse = async (query) => {
     try {
-      const apiKey = "AIzaSyBfivWk1WKyZ6PCHC69X6viASCMQ14tBsw"; // Replace with your actual Gemini API key
-      console.log(`Fetching Gemini response for: ${query}`);
+      const apiKey = 'AIzaSyBfivWk1WKyZ6PCHC69X6viASCMQ14tBsw'; // Ensure your API key is set in the .env file
+      const genAI = new GoogleGenerativeAI(apiKey); // Initialize the GoogleGenerativeAI instance
 
-      const response = await axios.post(
-        'https://generativeai.googleapis.com/v1/models/gemini-pro:generateText',
-        { prompt: query },
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      const geminiResponse = response.data?.text || "I couldn't find an answer to that.";
-      console.log(`Received Gemini response: ${geminiResponse}`);
-      return geminiResponse;
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await model.generateContent([query]); // Use query as an array
+      
+      console.log("Gemini response:", result.response.text());
+      return result.response.text(); // Return the response text
     } catch (error) {
       console.error('Error generating content:', error);
       return "Sorry, I couldn't understand that.";
     }
   };
 
+  const handleManualInput = (event) => {
+    if (event.key === 'Enter') {
+      handleVoiceCommand(inputText.toLowerCase());
+      setInputText(''); // Clear input after command is processed
+    }
+  };
+
   useEffect(() => {
     if (!supported) {
-      console.warn("Speech recognition is not supported in this browser.");
-      alert("Speech recognition is not supported in this browser.");
+      alert("Speech recognition is not supported in this browser. Please try using Chrome.");
       return;
     }
-
-    listen(); // Start listening automatically on mount
-    return () => stop(); // Clean up on unmount
+    listen();
+    return () => stop();
   }, [listen, stop, supported]);
 
   return (
     <AssistantContainer>
       <h1>Ultron Voice Assistant</h1>
+      {!supported && (
+        <p>Speech recognition is not supported in this browser. Please use Chrome or Edge on desktop.</p>
+      )}
       <WaveAnimation isActive={isListening || isSpeaking} />
       <p>{responseText}</p>
-      <button onClick={() => { setIsListening(!isListening); isListening ? stop() : listen(); }}>
-        {isListening ? "Stop Listening" : "Start Listening"}
-      </button>
-      {isSpeaking && <p>Speaking...</p>}
+      <input
+        type="text"
+        placeholder="Type command here..."
+        value={inputText}
+        onChange={(e) => setInputText(e.target.value)}
+        onKeyDown={handleManualInput}
+      />
     </AssistantContainer>
   );
 };
